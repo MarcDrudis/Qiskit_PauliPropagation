@@ -1,9 +1,0 @@
-LICENSE
-setup.py
-qiskit_paulipropagation/__init__.py
-qiskit_paulipropagation/julia.py
-tests/test_estimator.py
-your_package_name.egg-info/PKG-INFO
-your_package_name.egg-info/SOURCES.txt
-your_package_name.egg-info/dependency_links.txt
-your_package_name.egg-info/top_level.txt
