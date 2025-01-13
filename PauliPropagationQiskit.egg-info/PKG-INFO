@@ -5,6 +5,7 @@ Summary: Small wrapper to expose PauliPropagation to Qiskit
 Author: Marc
 Author-email: marcsanzdrudis@outlook.com
 License-File: LICENSE
+Requires-Dist: juliapkg
 Requires-Dist: juliacall>=0.9.0
 Requires-Dist: qiskit
 Dynamic: author
