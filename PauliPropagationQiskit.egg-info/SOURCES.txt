@@ -1,0 +1,10 @@
+LICENSE
+setup.py
+PauliPropagationQiskit.egg-info/PKG-INFO
+PauliPropagationQiskit.egg-info/SOURCES.txt
+PauliPropagationQiskit.egg-info/dependency_links.txt
+PauliPropagationQiskit.egg-info/requires.txt
+PauliPropagationQiskit.egg-info/top_level.txt
+qiskit_paulipropagation/__init__.py
+qiskit_paulipropagation/julia.py
+tests/test_estimator.py

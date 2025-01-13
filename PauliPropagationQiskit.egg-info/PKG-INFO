@@ -1,0 +1,13 @@
+Metadata-Version: 2.2
+Name: PauliPropagationQiskit
+Version: 0.1.0
+Summary: Small wrapper to expose PauliPropagation to Qiskit
+Author: Marc
+Author-email: marcsanzdrudis@outlook.com
+License-File: LICENSE
+Requires-Dist: juliacall>=0.9.0
+Requires-Dist: qiskit
+Dynamic: author
+Dynamic: author-email
+Dynamic: requires-dist
+Dynamic: summary
