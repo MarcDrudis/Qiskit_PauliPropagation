@@ -52,7 +52,8 @@ def qc_to_pp(
     dag = qc if isinstance(qc, DAGCircuit) else circuit_to_dag(qc)
     num_qubits = qc.num_qubits() if isinstance(qc, DAGCircuit) else qc.num_qubits
     op_nodes = list(dag.topological_op_nodes())
-    pp_circuit = []
+    # pp_circuit = []
+    pp_circuit = pp.seval("Vector{Gate}")()
     parameter_map = []
     for node in op_nodes:
         q_indices = tuple(qarg._index + 1 for qarg in node.qargs)
@@ -60,7 +61,7 @@ def qc_to_pp(
         if name in pauli_rotations:
             pauli_rot = pp.PauliRotation(pauli_rotations[name], q_indices)
             # pp_circuit.append(pp.tofastgates(pauli_rot, num_qubits))
-            pp_circuit.append(pauli_rot)
+            pp.push_b(pp_circuit, pauli_rot)
             if isinstance(node.op.params[0], float):
                 parameter_map.append(node.op.params[0])
             else:
@@ -68,7 +69,7 @@ def qc_to_pp(
         elif name in clifford_gates:
             clifford_gate = pp.CliffordGate(clifford_gates[name], q_indices)
             # pp_circuit.append(pp.tofastgates(clifford_gate, num_qubits))
-            pp_circuit.append(clifford_gate)
+            pp.push_b(pp_circuit, clifford_gate)
         else:
             print(f"We did not find a gate for {node.op.name}. Skipping Gate.")
     return pp_circuit, parameter_map
@@ -92,12 +93,12 @@ def sparsepauliop_to_pp(op: SparsePauliOp):
     for pauli, qubits, coefficient in op.to_sparse_list():
         pauli_symbols = pp.seval("Vector{Symbol}")()
         for p in pauli:
-            jl.push_b(pauli_symbols,convert(jl.Symbol,str(p)))
-        pp_qubits= pp.seval("Vector{Int}")()
+            jl.push_b(pauli_symbols, convert(jl.Symbol, str(p)))
+        pp_qubits = pp.seval("Vector{Int}")()
         for q in qubits:
-            jl.push_b(pp_qubits,q+1)
-        #Here I am assuming the coefficient will be real. Good Luck!
-        pp.add_b(pp_paulisum,pauli_symbols,pp_qubits,coefficient.real)
+            jl.push_b(pp_qubits, q + 1)
+        # Here I am assuming the coefficient will be real. Good Luck!
+        pp.add_b(pp_paulisum, pauli_symbols, pp_qubits, coefficient.real)
     return pp_paulisum
 
 
