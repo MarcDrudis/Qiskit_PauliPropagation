@@ -2,9 +2,8 @@ from juliacall import Main as jl
 from juliacall import Pkg as jlPkg
 from juliacall import convert
 from qiskit.circuit import QuantumCircuit
-from qiskit.circuit.parametervector import ParameterVectorElement
 from qiskit.compiler import transpile
-from qiskit.converters import circuit_to_dag, dag_to_circuit
+from qiskit.converters import circuit_to_dag
 from qiskit.dagcircuit import DAGCircuit
 from qiskit.quantum_info import SparsePauliOp
 
@@ -13,6 +12,7 @@ jlPkg.activate("PauliPropagation")
 jl.seval("using PauliPropagation")
 pp = jl.PauliPropagation
 
+# Here is the mapping between the supported qiskit gates and the corresponding PP gates.
 pauli_rotations = {
     "rx": (convert(jl.Symbol, "X"),),
     "ry": (convert(jl.Symbol, "Y"),),
@@ -46,13 +46,14 @@ supported_gates = list(clifford_gates.keys()) + list(pauli_rotations.keys())
 def qc_to_pp(
     qc: QuantumCircuit | DAGCircuit,
 ) -> tuple[list[tuple[str, list[int]]], list[int]]:
-    """Returns a list with all the PP gates in julia and a map with the parameter indices."""
+    """
+    Returns a list of Gates which describes the circuit in the PP package. It also returns a mapping
+    between the parameter circuit in each library.
+    """
 
     # The circuit must only contain supported gates.
     dag = qc if isinstance(qc, DAGCircuit) else circuit_to_dag(qc)
-    num_qubits = qc.num_qubits() if isinstance(qc, DAGCircuit) else qc.num_qubits
     op_nodes = list(dag.topological_op_nodes())
-    # pp_circuit = []
     pp_circuit = pp.seval("Vector{Gate}")()
     parameter_map = []
     for node in op_nodes:
@@ -60,7 +61,6 @@ def qc_to_pp(
         name = node.op.name
         if name in pauli_rotations:
             pauli_rot = pp.PauliRotation(pauli_rotations[name], q_indices)
-            # pp_circuit.append(pp.tofastgates(pauli_rot, num_qubits))
             pp.push_b(pp_circuit, pauli_rot)
             if isinstance(node.op.params[0], float):
                 parameter_map.append(node.op.params[0])
@@ -68,26 +68,14 @@ def qc_to_pp(
                 parameter_map.append(node.op.params[0].index)
         elif name in clifford_gates:
             clifford_gate = pp.CliffordGate(clifford_gates[name], q_indices)
-            # pp_circuit.append(pp.tofastgates(clifford_gate, num_qubits))
             pp.push_b(pp_circuit, clifford_gate)
         else:
             print(f"We did not find a gate for {node.op.name}. Skipping Gate.")
     return pp_circuit, parameter_map
 
 
-def pp_estimator(
-    qc: QuantumCircuit | DAGCircuit,
-    obs: SparsePauliOp,
-    params: list[float],
-    compile: bool = False,
-    **kwargs,
-):
-    """Retruns the expectation value for an initial state of |0>."""
-    pauli_sum = pp_propagation(qc, obs, params, compile, **kwargs)
-    return pp.overlapwithzero(pauli_sum)
-
-
 def sparsepauliop_to_pp(op: SparsePauliOp):
+    """Returns the PP PauliSum representation of the SparsePauliOp."""
     nqubits = op.num_qubits
     pp_paulisum = pp.PauliSum(nqubits)
     for pauli, qubits, coefficient in op.to_sparse_list():
@@ -97,15 +85,31 @@ def sparsepauliop_to_pp(op: SparsePauliOp):
         pp_qubits = pp.seval("Vector{Int}")()
         for q in qubits:
             jl.push_b(pp_qubits, q + 1)
-        # Here I am assuming the coefficient will be real. Good Luck!
+        # Here I am assuming the coefficient will be real. I could be wrong.
         pp.add_b(pp_paulisum, pauli_symbols, pp_qubits, coefficient.real)
     return pp_paulisum
+
+
+def pp_estimator(
+    qc: QuantumCircuit | DAGCircuit,
+    obs: SparsePauliOp,
+    params: list[float],
+    compile: bool = False,
+    **kwargs,
+) -> float:
+    """Retruns the expectation value for an observable and a
+    QuantumCircuit starting at |0>."""
+    pauli_sum = pp_propagation(qc, obs, params, compile, **kwargs)
+    return pp.overlapwithzero(pauli_sum)
 
 
 def propagation(
     pp_circuit, parameter_map, pp_observable, params: list[float], **kwargs
 ):
-
+    """
+    Propagates a PP circuit. This method can be used to reduce the overhead of converting circuits from
+    Qiskit to PP repeatidly.
+    """
     pp_params = [params[i] if isinstance(i, int) else i for i in parameter_map]
     pauli_sum = pp.propagate(
         pp_circuit,
@@ -123,6 +127,11 @@ def pp_propagation(
     compile: bool = False,
     **kwargs,
 ):
+    """
+    Returns the PP PauliSum of an observable propagated over a quantum circuit.
+    """
+    if compile:
+        qc = transpile(qc, basis_gates=supported_gates)
     pp_circuit, parameter_map = qc_to_pp(qc)
     pp_observable = sparsepauliop_to_pp(obs)
     return propagation(pp_circuit, parameter_map, pp_observable, params, **kwargs)
