@@ -11,6 +11,7 @@ from qiskit.quantum_info import Statevector, state_fidelity
 from qiskit.quantum_info.states.statevector import SparsePauliOp
 
 from qiskit_paulipropagation.julia import pp_estimator, supported_gates
+import unittest
 
 
 class TestHamiltonians(TestCase):
@@ -52,3 +53,9 @@ class TestHamiltonians(TestCase):
     #                 qc.assign_parameters(parameter_values)
     #             ).expectation_value(obs)
     #             np.testing.assert_almost_equal(pp_value, qiskit_value)
+    #
+    #
+
+
+if __name__ == "__main__":
+    unittest.main()

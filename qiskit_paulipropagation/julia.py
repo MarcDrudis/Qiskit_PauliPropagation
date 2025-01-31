@@ -1,4 +1,5 @@
 from juliacall import Main as jl
+import numpy as np
 from juliacall import Pkg as jlPkg
 from juliacall import convert
 from qiskit.circuit import QuantumCircuit
@@ -11,6 +12,7 @@ print("Activating PP")
 jlPkg.activate("PauliPropagation")
 jl.seval("using PauliPropagation")
 pp = jl.PauliPropagation
+pp.include("julia_functions/qgt_compute.jl")
 
 # Here is the mapping between the supported qiskit gates and the corresponding PP gates.
 pauli_rotations = {
@@ -44,8 +46,11 @@ supported_gates = list(clifford_gates.keys()) + list(pauli_rotations.keys())
 
 
 def qc_to_pp(
-    qc: QuantumCircuit | DAGCircuit,
-) -> tuple[list[tuple[str, list[int]]], list[int]]:
+    qc: QuantumCircuit | DAGCircuit, gate_position: bool = False
+) -> (
+    tuple[list[tuple[str, list[int]]], list[int]]
+    | tuple[list[tuple[str, list[int]]], list[int], dict[int, int]]
+):
     """
     Returns a list of Gates which describes the circuit in the PP package. It also returns a mapping
     between the parameter circuit in each library.
@@ -56,7 +61,8 @@ def qc_to_pp(
     op_nodes = list(dag.topological_op_nodes())
     pp_circuit = pp.seval("Vector{Gate}")()
     parameter_map = []
-    for node in op_nodes:
+    parameter_position = pp.seval("Dict{Int, Int}")()
+    for position, node in enumerate(op_nodes):
         q_indices = tuple(qarg._index + 1 for qarg in node.qargs)
         name = node.op.name
         if name in pauli_rotations:
@@ -66,11 +72,15 @@ def qc_to_pp(
                 parameter_map.append(node.op.params[0])
             else:
                 parameter_map.append(node.op.params[0].index)
+                parameter_position[node.op.params[0].index + 1] = position + 1
         elif name in clifford_gates:
             clifford_gate = pp.CliffordGate(clifford_gates[name], q_indices)
             pp.push_b(pp_circuit, clifford_gate)
         else:
             print(f"We did not find a gate for {node.op.name}. Skipping Gate.")
+    if gate_position:
+        return pp_circuit, parameter_map, parameter_position
+
     return pp_circuit, parameter_map
 
 
@@ -135,3 +145,13 @@ def pp_propagation(
     pp_circuit, parameter_map = qc_to_pp(qc)
     pp_observable = sparsepauliop_to_pp(obs)
     return propagation(pp_circuit, parameter_map, pp_observable, params, **kwargs)
+
+
+def compute_qgt(qc: QuantumCircuit, parameters: list[float]):
+    pp_circuit, parameter_map, parameter_position = qc_to_pp(qc, True)
+    pp_params = [parameters[i] if isinstance(i, int) else i for i in parameter_map]
+    print(parameter_map)
+    qgt = pp.compute_qgt(
+        qc.num_parameters, pp_circuit, pp_params, parameter_map, parameter_position
+    )
+    return np.array(qgt) / 4
