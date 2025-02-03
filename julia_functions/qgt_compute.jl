@@ -73,11 +73,11 @@ function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position)
   total_elements = nparams * nparams
 
   # Parallel computation over the flattened array
-  Threads.@threads for idx in 1:total_elements
+  for idx in 1:total_elements
     i = div(idx - 1, nparams) + 1  # Row index
     j = mod(idx - 1, nparams) + 1  # Column index
 
-    println("Thread ", threadid(), " is handling operation at (", i, ", ", j, ")")
+    # println("Thread ", threadid(), " is handling operation at (", i, ", ", j, ")")
     # println(nq, circ, thetas, i, j)
     qgt[i, j] = qgt_element(nq, circ, thetas, parameter_position[i], parameter_position[j])  # Call the provided function
   end
