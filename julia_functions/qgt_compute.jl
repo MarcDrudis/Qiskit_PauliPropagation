@@ -49,10 +49,13 @@ end
 
 
 #We assume that i<j
-function qgt_element(nq::Int, circ, thetas, i::Int, j::Int)
+function qgt_element(nq::Int, circ, thetas, i::Int, j::Int; kwargs...)
   if i >= j
     i, j = j, i
   end
+  print(Threads.nthreads())
+  # println("now computing circuit form")
+  # @time begin
   new_circ = deepcopy(circ)
   add_control_pauli!(nq, new_circ, i)
   insert!(new_circ, i + 1, CliffordGate(:X, nq + 1))
@@ -61,11 +64,16 @@ function qgt_element(nq::Int, circ, thetas, i::Int, j::Int)
   push!(new_circ, CliffordGate(:H, nq + 1))
   insert!(new_circ, 1, CliffordGate(:H, nq + 1))
   obs = PauliString(nq + 1, :Z, nq + 1)
-  return overlapwithzero(propagate(new_circ, obs, thetas, max_weight=7, truncation_threshold=0.000001))
+  # end
+  # println("now computing expectation value")
+  # @time begin
+  value = overlapwithzero(propagate(new_circ, obs, thetas; kwargs...))
+  # end
+  return value
 end
 
 
-function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position)
+function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position; kwargs...)
   # Initialize an empty matrix
   nparams = countparameters(circ)
   qgt = zeros(Float64, nparams, nparams)
@@ -73,11 +81,11 @@ function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position)
   total_elements = nparams * nparams
 
   # Parallel computation over the flattened array
-  for idx in 1:total_elements
+  @threads for idx in 1:total_elements
     i = div(idx - 1, nparams) + 1  # Row index
     j = mod(idx - 1, nparams) + 1  # Column index
 
-    # println("Thread ", threadid(), " is handling operation at (", i, ", ", j, ")")
+    println("Thread ", threadid(), " is handling operation at (", i, ", ", j, ")")
     # println(nq, circ, thetas, i, j)
     qgt[i, j] = qgt_element(nq, circ, thetas, parameter_position[i], parameter_position[j])  # Call the provided function
   end
