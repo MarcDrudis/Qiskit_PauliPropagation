@@ -33,29 +33,6 @@ class TestHamiltonians(TestCase):
                 # print(qiskit_value, pp_value)
                 np.testing.assert_almost_equal(pp_value, qiskit_value)
 
-    # def test_efficientSU2(self):
-    #     """Test if the resulting circuit is indeed equivalent."""
-    #     qc = EfficientSU2(10, entanglement="pairwise").decompose()
-    #     obs = SparsePauliOp.from_sparse_list(
-    #         [("X", [5], 2.0), ("ZZ", [4, 7], -1.0)], qc.num_qubits
-    #     )
-    #
-    #     for i in range(10):
-    #         with self.subTest(f"Random:{i}"):
-    #             parameter_values = np.random.uniform(-1, 1, qc.num_parameters)
-    #             pp_value = pp_estimator(
-    #                 qc,
-    #                 obs,
-    #                 params=parameter_values,
-    #                 # compile=True,
-    #             )
-    #             qiskit_value = Statevector(
-    #                 qc.assign_parameters(parameter_values)
-    #             ).expectation_value(obs)
-    #             np.testing.assert_almost_equal(pp_value, qiskit_value)
-    #
-    #
-
 
 if __name__ == "__main__":
     unittest.main()
