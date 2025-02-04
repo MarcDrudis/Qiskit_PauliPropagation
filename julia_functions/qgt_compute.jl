@@ -80,8 +80,10 @@ function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position; k
   # Total number of elements
   total_elements = nparams * nparams
 
+  println("number of threads:", Threads.nthreads())
+
   # Parallel computation over the flattened array
-  @threads for idx in 1:total_elements
+  Threads.@threads for idx in 1:total_elements
     i = div(idx - 1, nparams) + 1  # Row index
     j = mod(idx - 1, nparams) + 1  # Column index
 

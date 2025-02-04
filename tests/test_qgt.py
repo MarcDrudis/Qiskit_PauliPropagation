@@ -15,7 +15,6 @@ from qiskit_algorithms.gradients.reverse.reverse_qgt import ReverseQGT
 
 import unittest
 
-# os.environ["JULIA_NUM_THREADS"] = "4"
 from qiskit_paulipropagation.julia import compute_qgt, pp_estimator, supported_gates, pp
 
 

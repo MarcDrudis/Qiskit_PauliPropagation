@@ -1,4 +1,5 @@
 from juliacall import Main as jl
+import threading
 from multipledispatch import dispatch
 import numpy as np
 from juliacall import Pkg as jlPkg
@@ -161,13 +162,29 @@ def pp_propagation(
 def compute_qgt(qc: QuantumCircuit, parameters: list[float], **kwargs):
     pp_circuit, parameter_map, parameter_position = qc_to_pp(qc, True)
     pp_params = [parameters[i] if isinstance(i, int) else i for i in parameter_map]
-    print(parameter_map)
-    qgt = pp.compute_qgt(
-        qc.num_parameters,
-        pp_circuit,
-        pp_params,
-        parameter_map,
-        parameter_position,
-        **kwargs,
-    )
+    qgt = np.zeros((qc.num_parameters, qc.num_parameters), float)
+
+    rows, columns = np.triu_indices(qc.num_parameters)
+    for i, j in zip(rows, columns):
+        qgt[i, j] = pp.qgt_element(
+            qc.num_qubits,
+            pp_circuit,
+            pp_params,
+            parameter_position[int(i)],
+            parameter_position[int(j)],
+        )
+    return qgt
+
+    # thread = threading.Thread(target=pp.compute_qgt)
+    # thread.start()
+    # thread.join()
+
+    # qgt = pp.compute_qgt(
+    #     qc.num_parameters,
+    #     pp_circuit,
+    #     pp_params,
+    #     parameter_map,
+    #     parameter_position,
+    #     **kwargs,
+    # )
     return np.array(qgt) / 4
