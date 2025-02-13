@@ -1,6 +1,6 @@
 from juliacall import Main as jl
+from tqdm import tqdm
 import threading
-from multipledispatch import dispatch
 import numpy as np
 from juliacall import Pkg as jlPkg
 from juliacall import convert
@@ -47,19 +47,8 @@ clifford_gates = {
 supported_gates = list(clifford_gates.keys()) + list(pauli_rotations.keys())
 
 
-@dispatch(QuantumCircuit, bool)
 def qc_to_pp(
-    qc: DAGCircuit, gate_position: bool = False
-) -> (
-    tuple[list[tuple[str, list[int]]], list[int]]
-    | tuple[list[tuple[str, list[int]]], list[int], dict[int, int]]
-):
-    return qc_to_pp(circuit_to_dag(qc), gate_position)
-
-
-@dispatch(DAGCircuit, bool)
-def qc_to_pp(
-    qc: DAGCircuit, gate_position: bool = False
+    qc: QuantumCircuit | DAGCircuit, gate_position: bool = False
 ) -> (
     tuple[list[tuple[str, list[int]]], list[int]]
     | tuple[list[tuple[str, list[int]]], list[int], dict[int, int]]
@@ -69,13 +58,15 @@ def qc_to_pp(
     between the parameter circuit in each library.
     """
 
+    dag = qc if isinstance(qc, DAGCircuit) else circuit_to_dag(qc, False)
+
     # The circuit must only contain supported gates.
-    op_nodes = list(qc.topological_op_nodes())
+    op_nodes = list(dag.topological_op_nodes())
     pp_circuit = pp.seval("Vector{Gate}")()
     parameter_map = []
     parameter_position = pp.seval("Dict{Int, Int}")()
     for position, node in enumerate(op_nodes):
-        q_indices = tuple(qc.find_bit(qarg).index + 1 for qarg in node.qargs)
+        q_indices = tuple(dag.find_bit(qarg).index + 1 for qarg in node.qargs)
         name = node.op.name
         if name in pauli_rotations:
             pauli_rot = pp.PauliRotation(pauli_rotations[name], q_indices)
@@ -159,21 +150,28 @@ def pp_propagation(
     return propagation(pp_circuit, parameter_map, pp_observable, params, **kwargs)
 
 
-def compute_qgt(qc: QuantumCircuit, parameters: list[float], **kwargs):
+def compute_qgt(
+    qc: QuantumCircuit,
+    parameters: list[float],
+    parallel: bool = False,
+    pbar: bool = False,
+    **kwargs,
+):
     pp_circuit, parameter_map, parameter_position = qc_to_pp(qc, True)
     pp_params = [parameters[i] if isinstance(i, int) else i for i in parameter_map]
     qgt = np.zeros((qc.num_parameters, qc.num_parameters), float)
 
     rows, columns = np.triu_indices(qc.num_parameters)
-    for i, j in zip(rows, columns):
+    for i, j in tqdm(list(reversed(list(zip(rows, columns))))):
         qgt[i, j] = pp.qgt_element(
             qc.num_qubits,
             pp_circuit,
             pp_params,
-            parameter_position[int(i)],
-            parameter_position[int(j)],
+            parameter_position[int(i) + 1],
+            parameter_position[int(j) + 1],
         )
-    return qgt
+    qgt = qgt + np.triu(qgt, 1).T
+    return qgt / 4
 
     # thread = threading.Thread(target=pp.compute_qgt)
     # thread.start()

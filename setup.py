@@ -11,5 +11,6 @@ setup(
         "juliapkg",
         "juliacall>=0.9.0",
         "qiskit",
+        "qiskit_algorithms",
     ],
 )

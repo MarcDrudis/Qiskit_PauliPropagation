@@ -18,14 +18,6 @@ import unittest
 from qiskit_paulipropagation.julia import compute_qgt, pp_estimator, supported_gates, pp
 
 
-def test_qgt(qc, **kwargs):
-    rng = np.random.default_rng(0)
-    parameters = rng.uniform(-1, 1, qc.num_parameters).tolist()
-    expected_qgt = ReverseQGT(False).run([qc], [parameters]).result().qgts[0].real
-    pp_qgt = compute_qgt(qc, parameters, **kwargs)
-    np.testing.assert_almost_equal(expected_qgt, pp_qgt, 4)
-
-
 class TestHamiltonians(TestCase):
     """Tests if we can get the generators out of any circuit."""
 
@@ -35,21 +27,35 @@ class TestHamiltonians(TestCase):
         qc = TwoLocal(
             5, ["rx", "rz"], ["cx"], entanglement="pairwise", reps=2
         ).decompose()
-        test_qgt(qc, max_weight=7, truncation_threshold=0.0001)
+        use_test_qgt(qc, max_weight=7, truncation_threshold=0.0001)
 
     def test_B(self):
         qc = n_local(5, ["ry"], ["cx"], entanglement="pairwise", reps=2)
-        print(qc)
-        test_qgt(qc)
+        use_test_qgt(qc)
 
     def test_C(self):
-        qc = TwoLocal(
-            20, ["rx", "rz"], ["cx"], entanglement="pairwise", reps=2
-        ).decompose()
+        qc = TwoLocal(20, ["ry"], ["cx"], entanglement="pairwise", reps=2).decompose()
         rng = np.random.default_rng(0)
         parameters = rng.uniform(-1, 1, qc.num_parameters).tolist()
-        print("this many threads", pp.seval("Threads.nthreads()"))
-        pp_qgt = compute_qgt(qc, parameters, max_weight=7, truncation_threshold=1e-3)
+        pp_qgt = compute_qgt(qc, parameters, max_weight=5, truncation_threshold=1e-3)
+
+
+def use_test_qgt(qc, **kwargs):
+    rng = np.random.default_rng(0)
+    parameters = rng.uniform(-1, 1, qc.num_parameters).tolist()
+    expected_qgt = ReverseQGT(False).run([qc], [parameters]).result().qgts[0].real
+    pp_qgt = compute_qgt(qc, parameters, **kwargs)
+    # compare_qgt(pp_qgt, expected_qgt)
+    np.testing.assert_almost_equal(expected_qgt, pp_qgt, 4)
+
+
+def compare_qgt(a, b):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(a)
+    ax[1].imshow(b)
+    plt.show()
 
 
 if __name__ == "__main__":

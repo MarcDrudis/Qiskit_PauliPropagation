@@ -28,13 +28,11 @@ function PauliPropagation.apply(gate::CPauli, pstr, coefficient; kwargs...)
     effect_pauli = effect_pauli + gate.pauli.term
   end
 
-  sign, new_pstr = pauliprod(pstr, effect_pauli)
+  new_pstr, sign = pauliprod(pstr, effect_pauli)
 
-  if !control_commutes & !target_commutes
-    return new_pstr, -real(sign) * coefficient
-  end
+  control_sign = !control_commutes & !target_commutes ? -1 : 1
 
-  return new_pstr, real(sign) * coefficient
+  return ((new_pstr, coefficient * control_sign * real(sign)),)
 end
 
 function get_ith_parameter(i::Int)
@@ -53,22 +51,22 @@ function qgt_element(nq::Int, circ, thetas, i::Int, j::Int; kwargs...)
   if i >= j
     i, j = j, i
   end
-  print(Threads.nthreads())
-  # println("now computing circuit form")
-  # @time begin
-  new_circ = deepcopy(circ)
-  add_control_pauli!(nq, new_circ, i)
-  insert!(new_circ, i + 1, CliffordGate(:X, nq + 1))
-  add_control_pauli!(nq, new_circ, j + 2)
-  insert!(new_circ, j + 3, CliffordGate(:X, nq + 1))
-  push!(new_circ, CliffordGate(:H, nq + 1))
-  insert!(new_circ, 1, CliffordGate(:H, nq + 1))
-  obs = PauliString(nq + 1, :Z, nq + 1)
-  # end
-  # println("now computing expectation value")
-  # @time begin
-  value = overlapwithzero(propagate(new_circ, obs, thetas; kwargs...))
-  # end
+  println("now computing circuit form")
+  @time begin
+    new_circ = deepcopy(circ)
+    add_control_pauli!(nq, new_circ, i)
+    insert!(new_circ, i + 1, CliffordGate(:X, nq + 1))
+    add_control_pauli!(nq, new_circ, j + 2)
+    insert!(new_circ, j + 3, CliffordGate(:X, nq + 1))
+    push!(new_circ, CliffordGate(:H, nq + 1))
+    insert!(new_circ, 1, CliffordGate(:H, nq + 1))
+    obs = PauliString(nq + 1, :Z, nq + 1)
+  end
+  println("now computing expectation value")
+  @time begin
+    prop_obs = propagate(new_circ, obs, thetas; kwargs...)
+    value = overlapwithzero(prop_obs)
+  end
   return value
 end
 
@@ -80,15 +78,12 @@ function compute_qgt(nq::Int, circ, thetas, parameter_map, parameter_position; k
   # Total number of elements
   total_elements = nparams * nparams
 
-  println("number of threads:", Threads.nthreads())
 
   # Parallel computation over the flattened array
-  Threads.@threads for idx in 1:total_elements
+  for idx in 1:total_elements
     i = div(idx - 1, nparams) + 1  # Row index
     j = mod(idx - 1, nparams) + 1  # Column index
 
-    println("Thread ", threadid(), " is handling operation at (", i, ", ", j, ")")
-    # println(nq, circ, thetas, i, j)
     qgt[i, j] = qgt_element(nq, circ, thetas, parameter_position[i], parameter_position[j])  # Call the provided function
   end
 
